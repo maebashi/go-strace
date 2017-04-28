@@ -1,0 +1,5 @@
+tmp/
+*~
+*.o
+sample
+coverage.out
