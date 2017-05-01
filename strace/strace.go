@@ -48,7 +48,7 @@ var DefaultHandler Handler = &SimplePrint{}
 func (*SimplePrint) Handle(t *tracee) {
 	switch t.State {
 	case SYSCALL_ENTER_STOP:
-		tprintf("%s(", t.s_ent.sys_name)
+		tprintf("%s(", t.s_ent.SysName)
 		print_syscall_args(t)
 		tprintf(") = ")
 	case SYSCALL_EXIT_STOP:
@@ -93,10 +93,10 @@ type tracer struct {
 var DefaultTracer = &tracer{}
 
 func print_syscall_args(t *tracee) {
-	nargs := t.s_ent.nargs
+	nargs := t.s_ent.Nargs
 	for i := 0; i < int(nargs); i++ {
 		arg := t.u_arg[i]
-		typ := t.s_ent.arg_types[i]
+		typ := t.s_ent.ArgTypes[i]
 		switch typ {
 		case ARG_INT:
 			tprintf("%d", arg)
