@@ -6,7 +6,7 @@ import (
 	"syscall"
 )
 
-func read_string(pid int, addr uint64) string {
+func ReadString(pid int, addr uint64) string {
 	val := []byte{}
 	b := make([]byte, 4)
 	var read uint64 = 0
@@ -27,7 +27,7 @@ func read_string(pid int, addr uint64) string {
 	return string(val)
 }
 
-func (t *tracee) get_scno(regs *syscall.PtraceRegs) error {
+func (t *Tracee) get_scno(regs *syscall.PtraceRegs) error {
 	scno := int(regs.Orig_rax)
 	if scno > len(syscallent) {
 		return errors.New("error")
@@ -36,7 +36,7 @@ func (t *tracee) get_scno(regs *syscall.PtraceRegs) error {
 	return nil
 }
 
-func (t *tracee) get_syscall_args(regs *syscall.PtraceRegs) error {
+func (t *Tracee) get_syscall_args(regs *syscall.PtraceRegs) error {
 	t.u_arg[0] = regs.Rdi
 	t.u_arg[1] = regs.Rsi
 	t.u_arg[2] = regs.Rdx
@@ -47,5 +47,5 @@ func (t *tracee) get_syscall_args(regs *syscall.PtraceRegs) error {
 	return nil
 }
 
-func (t *tracee) set_error() {
+func (t *Tracee) set_error() {
 }

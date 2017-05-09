@@ -37,10 +37,10 @@ const (
 )
 
 type sysent struct {
-	nargs     uint
-	sys_flags int
-	sys_name  string
-	arg_types []int
+	Nargs    uint
+	SysFlags int
+	SysName  string
+	ArgTypes []int
 }
 
 var syscallent []sysent = []sysent{

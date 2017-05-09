@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"syscall"
+	"time"
 )
 
 const (
@@ -38,21 +39,21 @@ const (
 )
 
 type Handler interface {
-	Handle(t *tracee)
+	Handle(t *Tracee)
 }
 
 type SimplePrint struct{}
 
 var DefaultHandler Handler = &SimplePrint{}
 
-func (*SimplePrint) Handle(t *tracee) {
+func (*SimplePrint) Handle(t *Tracee) {
 	switch t.State {
 	case SYSCALL_ENTER_STOP:
-		tprintf("%s(", t.s_ent.sys_name)
+		tprintf("%s(", t.s_ent.SysName)
 		print_syscall_args(t)
 		tprintf(") = ")
 	case SYSCALL_EXIT_STOP:
-		tprintf("%d\n", t.result)
+		tprintf("%d\n", t.Result)
 	case EXIT:
 		tprintf("Child(%d) exit with status %v\n", t.Pid, t.ExitStatus)
 	}
@@ -60,22 +61,29 @@ func (*SimplePrint) Handle(t *tracee) {
 
 type NullHandler struct{}
 
-func (*NullHandler) Handle(t *tracee) {}
+func (*NullHandler) Handle(t *Tracee) {}
 
 func tprintf(format string, a ...interface{}) (int, error) {
 	return fmt.Fprintf(os.Stderr, format, a...)
 }
 
-type tracee struct {
-	Pid   int
-	State State
-
+type Tracee struct {
+	Pid        int
+	State      State
 	ExitStatus int
+	Result     int
 
-	flags  int
-	u_arg  [MAX_ARGS]uint64
-	s_ent  *sysent
-	result int
+	flags int
+	u_arg [MAX_ARGS]uint64
+	s_ent *sysent
+}
+
+func (t *Tracee) Arg(i int) uint64 {
+	return t.u_arg[i]
+}
+
+func (t *Tracee) Sysent() *sysent {
+	return t.s_ent
 }
 
 type tracer struct {
@@ -86,22 +94,22 @@ type tracer struct {
 	ec          chan error
 	nprocs      int
 	interrupted os.Signal
-	table       map[int]*tracee
+	table       map[int]*Tracee
 	child       int
 }
 
 var DefaultTracer = &tracer{}
 
-func print_syscall_args(t *tracee) {
-	nargs := t.s_ent.nargs
+func print_syscall_args(t *Tracee) {
+	nargs := t.s_ent.Nargs
 	for i := 0; i < int(nargs); i++ {
 		arg := t.u_arg[i]
-		typ := t.s_ent.arg_types[i]
+		typ := t.s_ent.ArgTypes[i]
 		switch typ {
 		case ARG_INT:
 			tprintf("%d", arg)
 		case ARG_STR:
-			strval := read_string(t.Pid, arg)
+			strval := ReadString(t.Pid, arg)
 			tprintf("%q", strval)
 		default:
 			tprintf("0x%x", arg)
@@ -112,7 +120,7 @@ func print_syscall_args(t *tracee) {
 	}
 }
 
-func (tracer *tracer) traceSyscallEntering(t *tracee, regs *syscall.PtraceRegs) {
+func (tracer *tracer) traceSyscallEntering(t *Tracee, regs *syscall.PtraceRegs) {
 	t.State = SYSCALL_ENTER_STOP
 	t.get_scno(regs)
 	t.get_syscall_args(regs)
@@ -121,17 +129,17 @@ func (tracer *tracer) traceSyscallEntering(t *tracee, regs *syscall.PtraceRegs) 
 	t.flags |= TCB_INSYSCALL
 }
 
-func (tracer *tracer) traceSyscallExiting(t *tracee, regs *syscall.PtraceRegs) {
+func (tracer *tracer) traceSyscallExiting(t *Tracee, regs *syscall.PtraceRegs) {
 	t.State = SYSCALL_EXIT_STOP
 	t.get_syscall_args(regs)
 	if true {
-		t.result = int(regs.Rax)
+		t.Result = int(regs.Rax)
 		tracer.h.Handle(t)
 	}
 	t.flags &= ^TCB_INSYSCALL
 }
 
-func (tracer *tracer) traceSyscall(t *tracee, regs *syscall.PtraceRegs) {
+func (tracer *tracer) traceSyscall(t *Tracee, regs *syscall.PtraceRegs) {
 	if (t.flags & TCB_INSYSCALL) > 0 {
 		tracer.traceSyscallExiting(t, regs)
 	} else {
@@ -145,9 +153,10 @@ func (tracer *tracer) start() {
 	}
 	tracer.fc = make(chan func())
 	tracer.ec = make(chan error)
-	tracer.table = map[int]*tracee{}
+	tracer.table = map[int]*Tracee{}
 	go func() {
 		runtime.LockOSThread()
+		time.Sleep(1 * time.Millisecond)
 		tracer.loop()
 	}()
 }
@@ -205,7 +214,7 @@ func (tracer *tracer) Exec(name string, argv []string) (int, error) {
 		}
 
 		flags := TCB_STARTUP | TCB_ATTACHED | TCB_HIDE_LOG
-		tracer.table[pid] = &tracee{Pid: pid, flags: flags}
+		tracer.table[pid] = &Tracee{Pid: pid, flags: flags}
 		tracer.child = pid
 
 		pc <- pid
@@ -234,7 +243,7 @@ func (tracer *tracer) attach(pid int) error {
 		return err
 	}
 	flags := TCB_STARTUP | TCB_ATTACHED
-	tracer.table[pid] = &tracee{Pid: pid, flags: flags}
+	tracer.table[pid] = &Tracee{Pid: pid, flags: flags}
 	dprintf("attach(%d) (main)\n", pid)
 	if tracer.FollowFork {
 		procdir := fmt.Sprintf("/proc/%d/task", pid)
@@ -252,7 +261,7 @@ func (tracer *tracer) attach(pid int) error {
 				log.Printf("PtraceAttach(%d): %v", tid, err)
 				continue
 			}
-			tracer.table[tid] = &tracee{Pid: tid, flags: flags}
+			tracer.table[tid] = &Tracee{Pid: tid, flags: flags}
 			dprintf("attach(%d)\n", tid)
 		}
 	}
@@ -357,7 +366,7 @@ func (tracer *tracer) trace(h Handler) error {
 	t, ok := tracer.table[pid]
 	if !ok {
 		if tracer.FollowFork {
-			t = &tracee{
+			t = &Tracee{
 				Pid:   pid,
 				flags: TCB_STARTUP | TCB_ATTACHED,
 			}
