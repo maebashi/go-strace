@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"syscall"
+	"time"
 )
 
 const (
@@ -155,6 +156,7 @@ func (tracer *tracer) start() {
 	tracer.table = map[int]*Tracee{}
 	go func() {
 		runtime.LockOSThread()
+		time.Sleep(1 * time.Millisecond)
 		tracer.loop()
 	}()
 }
