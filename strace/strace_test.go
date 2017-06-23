@@ -8,7 +8,7 @@ import (
 )
 
 func TestAttach(t *testing.T) {
-	proc, err := os.StartProcess("/bin/true", []string{"true"}, &os.ProcAttr{})
+	proc, err := os.StartProcess("/bin/sleep", []string{"sleep", "1"}, &os.ProcAttr{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,11 +21,13 @@ func TestAttach(t *testing.T) {
 		t.Errorf("Attach(%v) threw %v", pid, err)
 	}
 
+	time.Sleep(1 * time.Millisecond)
+
 	err = Detach(pid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	proc.Wait()
+	proc.Kill()
 }
 
 func TestExec(t *testing.T) {
@@ -48,10 +50,10 @@ func TestExec(t *testing.T) {
 }
 
 type testHandler struct {
-	f func(t *tracee)
+	f func(t *Tracee)
 }
 
-func (h *testHandler) Handle(t *tracee) {
+func (h *testHandler) Handle(t *Tracee) {
 	h.f(t)
 }
 
@@ -65,7 +67,7 @@ func TestTrace(t *testing.T) {
 
 	var state State
 	Trace(&testHandler{
-		f: func(t *tracee) {
+		f: func(t *Tracee) {
 			state = t.State
 		}})
 	if state != EXIT {
