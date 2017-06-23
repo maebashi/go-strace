@@ -73,9 +73,10 @@ type Tracee struct {
 	ExitStatus int
 	Result     int
 
-	flags int
-	u_arg [MAX_ARGS]uint64
-	s_ent *sysent
+	flags    int
+	qual_flg int
+	u_arg    [MAX_ARGS]uint64
+	s_ent    *sysent
 }
 
 func (t *Tracee) Arg(i int) uint64 {
@@ -123,6 +124,10 @@ func print_syscall_args(t *Tracee) {
 func (tracer *tracer) traceSyscallEntering(t *Tracee, regs *syscall.PtraceRegs) {
 	t.State = SYSCALL_ENTER_STOP
 	t.get_scno(regs)
+	if (t.qual_flg & QUAL_TRACE) == 0 {
+		t.flags |= TCB_INSYSCALL | TCB_FILTERED
+		return
+	}
 	t.get_syscall_args(regs)
 	tracer.h.Handle(t)
 
@@ -131,12 +136,17 @@ func (tracer *tracer) traceSyscallEntering(t *Tracee, regs *syscall.PtraceRegs) 
 
 func (tracer *tracer) traceSyscallExiting(t *Tracee, regs *syscall.PtraceRegs) {
 	t.State = SYSCALL_EXIT_STOP
+	if (t.flags & TCB_FILTERED) != 0 {
+		goto ret
+	}
 	t.get_syscall_args(regs)
 	if true {
 		t.Result = int(regs.Rax)
 		tracer.h.Handle(t)
 	}
-	t.flags &= ^TCB_INSYSCALL
+
+ret:
+	t.flags &= ^(TCB_INSYSCALL | TCB_TAMPERED)
 }
 
 func (tracer *tracer) traceSyscall(t *Tracee, regs *syscall.PtraceRegs) {

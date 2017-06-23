@@ -33,6 +33,7 @@ func (t *Tracee) get_scno(regs *syscall.PtraceRegs) error {
 		return errors.New("error")
 	}
 	t.s_ent = &syscallent[scno]
+	t.qual_flg = qualFlags(scno)
 	return nil
 }
 
