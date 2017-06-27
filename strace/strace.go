@@ -87,6 +87,10 @@ func (t *Tracee) Sysent() *sysent {
 	return t.s_ent
 }
 
+func (t *Tracee) Flags() int {
+	return t.flags
+}
+
 type tracer struct {
 	FollowFork bool
 
@@ -127,6 +131,10 @@ func (tracer *tracer) traceSyscallEntering(t *Tracee, regs *syscall.PtraceRegs) 
 	if (t.qual_flg & QUAL_TRACE) == 0 {
 		t.flags |= TCB_INSYSCALL | TCB_FILTERED
 		return
+	}
+	t.flags &= ^TCB_FILTERED
+	if (t.qual_flg & QUAL_INJECT) != 0 {
+		t.flags |= TCB_TAMPERED
 	}
 	t.get_syscall_args(regs)
 	tracer.h.Handle(t)
