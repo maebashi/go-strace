@@ -42,8 +42,7 @@ func (s *numberSet) String() string {
 }
 
 var traceSet = &numberSet{not: true}
-
-//var traceSet = &numberSet{}
+var injectSet = &numberSet{}
 
 func numberSetbit(i uint, vec []uint) {
 	vec[i/bits_per_slot] |= uint(1 << (i % bits_per_slot))
@@ -108,6 +107,17 @@ func qualifyTrace(str string) {
 	qualifySyscallTokens(str, traceSet, "system call")
 }
 
+func qualifyInjectCommon(str, description string) {
+	qualifySyscallTokens(str, injectSet, description)
+}
+
+func qualifyFault(str string) {
+	qualifyInjectCommon(str, "fault argument")
+}
+func qualifyInject(str string) {
+	qualifyInjectCommon(str, "inject argument")
+}
+
 type qOptions struct {
 	name    string
 	qualify func(string)
@@ -116,6 +126,8 @@ type qOptions struct {
 var qualOptions = []qOptions{
 	qOptions{"trace", qualifyTrace},
 	qOptions{"t", qualifyTrace},
+	qOptions{"fault", qualifyFault},
+	qOptions{"inject", qualifyInject},
 }
 
 func Qualify(str string) {
@@ -134,6 +146,9 @@ func qualFlags(scno int) int {
 	res := 0
 	if isNumberInSet(uint(scno), traceSet) {
 		res |= QUAL_TRACE
+	}
+	if isNumberInSet(uint(scno), injectSet) {
+		res |= QUAL_INJECT
 	}
 	return res
 }

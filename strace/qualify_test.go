@@ -66,4 +66,12 @@ func TestQualify(t *testing.T) {
 	if !isNumberInSet(4, traceSet) {
 		t.Errorf("bit %d not set", 4)
 	}
+
+	Qualify("inject=stat,pause")
+	if isNumberInSet(1, injectSet) {
+		t.Errorf("bit %d set", 1)
+	}
+	if !isNumberInSet(4, injectSet) {
+		t.Errorf("bit %d not set", 4)
+	}
 }
