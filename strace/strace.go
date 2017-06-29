@@ -77,6 +77,7 @@ type Tracee struct {
 	qual_flg int
 	u_arg    [MAX_ARGS]uint64
 	s_ent    *sysent
+	regs     *syscall.PtraceRegs
 }
 
 func (t *Tracee) Arg(i int) uint64 {
@@ -89,6 +90,11 @@ func (t *Tracee) Sysent() *sysent {
 
 func (t *Tracee) Flags() int {
 	return t.flags
+}
+
+func (t *Tracee) Upoke(addr uint64, data []byte) error {
+	_, err := syscall.PtracePokeData(t.Pid, uintptr(addr), data)
+	return err
 }
 
 type tracer struct {
@@ -143,6 +149,7 @@ func (tracer *tracer) traceSyscallEntering(t *Tracee, regs *syscall.PtraceRegs) 
 }
 
 func (tracer *tracer) traceSyscallExiting(t *Tracee, regs *syscall.PtraceRegs) {
+	t.regs = regs
 	t.State = SYSCALL_EXIT_STOP
 	if (t.flags & TCB_FILTERED) != 0 {
 		goto ret
