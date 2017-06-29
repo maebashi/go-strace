@@ -48,5 +48,7 @@ func (t *Tracee) get_syscall_args(regs *syscall.PtraceRegs) error {
 	return nil
 }
 
-func (t *Tracee) set_error() {
+func (t *Tracee) SetError(e int) error {
+	t.regs.Rax = uint64(e)
+	return syscall.PtraceSetRegs(t.Pid, t.regs)
 }
